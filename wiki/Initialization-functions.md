@@ -43,14 +43,23 @@ Top-level class for all interactions with the MCR600 series boards. Opens the se
 
 **Example**
 
-```python
-import TheiaMCR as mcr
+```cpp
+#include "TheiaMCR.h"
+#include <iostream>
 
-MCR = mcr.MCRControl('com4')
-if not MCR.boardInitialized:
-    print('Board not found. Check the COM port.')
-else:
-    print(f'Board initialized: {MCR.MCRInitialized}')
+int main() {
+    auto MCR = new TheiaMCR::MCRControl("COM4", true, false, false);
+    if (!MCR->isInitialized()) {
+        std::cerr << "Board not found. Check the COM port." << std::endl;
+        delete MCR;
+        return 1;
+    }
+    std::cout << "Board initialized: " << MCR->isInitialized() << std::endl;
+    
+    MCR->close();
+    delete MCR;
+    return 0;
+}
 ```
 
 ---
@@ -79,15 +88,15 @@ Initialize the focus motor. Creates the `MCR.focus` motor instance. Must be call
 
 **Example**
 
-```python
-# TL1250 lens
-success = MCR.focusInit(steps=8390, pi=7959)
+```cpp
+// TL1250 lens
+bool success = MCR->focusInit(8390, 7959);
 
-# Initialize without moving to home
-success = MCR.focusInit(steps=8390, pi=7959, move=False)
+// Initialize without moving to home
+success = MCR->focusInit(8390, 7959, false);
 
-# Set a custom homing speed
-success = MCR.focusInit(steps=8390, pi=7959, homingSpeed=800)
+// Set a custom homing speed
+success = MCR->focusInit(8390, 7959, true, 0, 800);
 ```
 
 ---
@@ -114,12 +123,12 @@ Initialize the zoom motor. Creates the `MCR.zoom` motor instance. Must be called
 
 **Example**
 
-```python
-# TL1250 lens
-success = MCR.zoomInit(steps=3227, pi=3119)
+```cpp
+// TL1250 lens
+bool success = MCR->zoomInit(3227, 3119);
 
-# TL410 lens (PI near step 0)
-success = MCR.zoomInit(steps=4073, pi=154)
+// TL410 lens (PI near step 0)
+success = MCR->zoomInit(4073, 154);
 ```
 
 ---
@@ -144,8 +153,8 @@ Initialize the iris motor. Creates the `MCR.iris` motor instance. The iris motor
 
 **Example**
 
-```python
-success = MCR.irisInit(steps=75)
+```cpp
+bool success = MCR->irisInit(75);
 ```
 
 ---
@@ -164,8 +173,8 @@ At the default speed of 1000 pps, each step corresponds to approximately 1 ms of
 
 **Example**
 
-```python
-success = MCR.IRCInit()
+```cpp
+bool success = MCR->IRCInit();
 ```
 
 ---
@@ -182,33 +191,41 @@ Close the serial port and release all resources held by the MCR board instance. 
 
 **Example**
 
-```python
-MCR.close()
+```cpp
+MCR->close();
+delete MCR;
 ```
 
 ---
 
 ## Complete Initialization Example
 
-```python
-import TheiaMCR as mcr
+```cpp
+#include "TheiaMCR.h"
+#include <iostream>
 
-# Initialize board
-MCR = mcr.MCRControl('com4')
-if not MCR.boardInitialized:
-    print('Board not found')
-    exit()
-
-# Initialize motors (TL1250 lens)
-MCR.focusInit(steps=8390, pi=7959)
-MCR.zoomInit(steps=3227, pi=3119)
-MCR.irisInit(steps=75)
-MCR.IRCInit()
-
-print(f'Focus at step: {MCR.focus.currentStep}')
-print(f'Zoom at step:  {MCR.zoom.currentStep}')
-
-# ... use the motors ...
-
-MCR.close()
+int main() {
+    // Initialize board
+    auto MCR = new TheiaMCR::MCRControl("COM4", true, false, false);
+    if (!MCR->isInitialized()) {
+        std::cerr << "Board not found" << std::endl;
+        delete MCR;
+        return 1;
+    }
+    
+    // Initialize motors (TL1250 lens)
+    MCR->focusInit(8390, 7959);
+    MCR->zoomInit(3227, 3119);
+    MCR->irisInit(75);
+    MCR->IRCInit();
+    
+    std::cout << "Focus at step: " << MCR->focus.currentStep << std::endl;
+    std::cout << "Zoom at step:  " << MCR->zoom.currentStep << std::endl;
+    
+    // ... use the motors ...
+    
+    MCR->close();
+    delete MCR;
+    return 0;
+}
 ```

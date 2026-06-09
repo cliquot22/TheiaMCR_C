@@ -14,9 +14,9 @@ MCR.MCRBoard.readFWRevision() -> str
 
 **Example**
 
-```python
-fw = MCR.MCRBoard.readFWRevision()
-print(f'Firmware version: {fw}')
+```cpp
+std::string fw = MCR->readFWRevision();
+std::cout << "Firmware version: " << fw << std::endl;
 ```
 
 ---
@@ -33,9 +33,9 @@ MCR.MCRBoard.readBoardSN() -> str
 
 **Example**
 
-```python
-sn = MCR.MCRBoard.readBoardSN()
-print(f'Board SN: {sn}')
+```cpp
+std::string sn = MCR->readBoardSN();
+std::cout << "Board SN: " << sn << std::endl;
 ```
 
 ---
@@ -67,10 +67,10 @@ motor.setMotorSpeed(speed) -> int
 
 **Example**
 
-```python
-MCR.focus.setMotorSpeed(800)
-MCR.zoom.setMotorSpeed(1200)
-MCR.iris.setMotorSpeed(50)
+```cpp
+MCR->focus.setMotorSpeed(800);
+MCR->zoom.setMotorSpeed(1200);
+MCR->iris.setMotorSpeed(50);
 ```
 
 ---
@@ -101,8 +101,8 @@ motor.setHomingSpeed(speed) -> int
 
 **Example**
 
-```python
-MCR.focus.setHomingSpeed(600)
+```cpp
+MCR->focus.setHomingSpeed(600);
 ```
 
 ---
@@ -129,11 +129,11 @@ When `True` (the default), `moveAbs()` and `moveRel()` will not allow the motor 
 
 **Example**
 
-```python
-# Allow focus to move past the PI limit
-MCR.focus.setRespectLimits(False)
-MCR.focus.moveRel(100)
-MCR.focus.setRespectLimits(True)
+```cpp
+// Allow focus to move past the PI limit
+MCR->focus.setRespectLimits(false);
+MCR->focus.moveRel(100);
+MCR->focus.setRespectLimits(true);
 ```
 
 ---
@@ -163,10 +163,12 @@ motor.readMotorSetup() -> tuple
 
 **Example**
 
-```python
-success, motorType, wideFarStop, teleNearStop, maxSteps, minSpeed, maxSpeed, errVal = MCR.zoom.readMotorSetup()
-if success:
-    print(f'Zoom: max steps={maxSteps}, speed range={minSpeed}-{maxSpeed} pps')
+```cpp
+auto [ok, motorType, wideFarStop, teleNearStop, maxSteps, minSpeed, maxSpeed, errVal] = MCR->zoom.readMotorSetup();
+if (ok) {
+    std::cout << "Zoom: max steps=" << maxSteps << ", speed range=" 
+              << minSpeed << "-" << maxSpeed << " pps" << std::endl;
+}
 ```
 
 ---
@@ -193,14 +195,14 @@ motor.writeMotorSetup(useWideFarStop, useTeleNearStop, maxSteps, minSpeed, maxSp
 
 **Example**
 
-```python
-success = MCR.zoom.writeMotorSetup(
-    useWideFarStop=True,
-    useTeleNearStop=False,
-    maxSteps=3227,
-    minSpeed=100,
-    maxSpeed=1500
-)
+```cpp
+bool success = MCR->zoom.writeMotorSetup(
+    true,    // useWideFarStop
+    false,   // useTeleNearStop
+    3227,    // maxSteps
+    100,     // minSpeed
+    1500     // maxSpeed
+);
 ```
 
 ---
@@ -219,11 +221,13 @@ Use this function to detect and recover from temporary USB disconnections in lon
 
 **Example**
 
-```python
-if not MCR.checkBoardCommunication():
-    print('Board communication lost — check USB connection')
-else:
-    print(f'Communication OK (restarts so far: {MCR.boardCommunicationRestarts})')
+```cpp
+if (!MCR->checkBoardCommunication()) {
+    std::cerr << "Board communication lost — check USB connection" << std::endl;
+} else {
+    std::cout << "Communication OK (restarts so far: " 
+              << MCR->boardCommunicationRestarts << ")" << std::endl;
+}
 ```
 
 ---
@@ -250,16 +254,22 @@ See [Theia motor driver instructions](https://theiatech.com/mcr) for wiring deta
 
 **Example**
 
-```python
-import TheiaMCR as mcr
-import time
+```cpp
+#include "TheiaMCR.h"
+#include <thread>
+#include <chrono>
 
-MCR = mcr.MCRControl('com4')
-
-# Switch to UART communication
-MCR.MCRBoard.setCommunicationPath('UART')
-
-# Wait for board reboot (>700 ms)
-time.sleep(1)
-# Reconnect on the new path
+int main() {
+    auto MCR = new TheiaMCR::MCRControl("COM4", true, false, false);
+    
+    // Switch to UART communication
+    MCR->setCommunicationPath("UART");
+    
+    // Wait for board reboot (>700 ms)
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    // Reconnect on the new path
+    
+    delete MCR;
+    return 0;
+}
 ```

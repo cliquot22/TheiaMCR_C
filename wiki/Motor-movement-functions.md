@@ -10,10 +10,10 @@ Every movement command returns an integer status code. A return value of `0` (`E
 
 **Checking for stale responses:** The MCR board response buffer is not automatically cleared. To confirm a response belongs to the most recent move command, request the firmware revision or board serial number immediately before reading the move response. This changes the first response byte from `0x74` (move response) to a different value, so a leading `0x74` byte can be confidently attributed to the latest move.
 
-```python
-MCR.focus.home()                        # response starts with 0x74
-MCR.MCRBoard.readFWRevision()           # response starts with 0x76
-MCR.focus.moveAbs(1000)                 # response starts with 0x74
+```cpp
+MCR->focus.home();                      // response starts with 0x74
+MCR->readFWRevision();                  // response starts with 0x76
+MCR->focus.moveAbs(1000);               // response starts with 0x74
 ```
 
 If a move fails, check `MCR.boardCommunicationState` to see whether the COM port is still connected. The number of automatic reconnections is counted in `MCR.boardCommunicationRestarts`.
@@ -46,10 +46,11 @@ The `respectLimits` flag is temporarily set to `True` for the homing move and th
 
 **Example**
 
-```python
-result = MCR.focus.home()
-if result == 0:
-    print(f'Focus homed to step {MCR.focus.currentStep}')
+```cpp
+int result = MCR->focus.home();
+if (result == 0) {
+    std::cout << "Focus homed to step " << MCR->focus.currentStep << std::endl;
+}
 ```
 
 ---
@@ -85,9 +86,9 @@ If `respectLimits` is `True` (the default), the target step cannot exceed the PI
 
 **Example**
 
-```python
-# Move focus to step 4000
-result = MCR.focus.moveAbs(4000)
+```cpp
+// Move focus to step 4000
+int result = MCR->focus.moveAbs(4000);
 ```
 
 ---
@@ -123,12 +124,12 @@ If `respectLimits` is `True`, the move is clipped to the PI step position limit.
 
 **Example**
 
-```python
-# Move focus +500 steps (with default backlash correction)
-result = MCR.focus.moveRel(500)
+```cpp
+// Move focus +500 steps (with default backlash correction)
+int result = MCR->focus.moveRel(500);
 
-# Move zoom -200 steps with no backlash correction
-result = MCR.zoom.moveRel(-200, correctForBL=False)
+// Move zoom -200 steps with no backlash correction
+result = MCR->zoom.moveRel(-200, false);
 ```
 
 ---
@@ -159,10 +160,10 @@ IRC.state(state) -> int
 
 **Example**
 
-```python
-# Switch to IR-blocking (visible light) filter
-MCR.IRC.state(1)
+```cpp
+// Switch to IR-blocking (visible light) filter
+MCR->IRC.state(1);
 
-# Switch to clear (full spectrum) filter
-MCR.IRC.state(2)
+// Switch to clear (full spectrum) filter
+MCR->IRC.state(2);
 ```

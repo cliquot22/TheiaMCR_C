@@ -24,28 +24,123 @@ The host PC communicates with the MCR IQ 600 board over a USB serial connection.
 
 ## Installation
 
+Choose the installation method based on your language and requirements:
+
+### Option 1: C++ (Native)
+
+Build the native C++ library and examples:
+
+```bash
+cd build
+cmake -DBUILD_EXAMPLES=ON ..
+cmake --build .
 ```
+
+**Requirements:**
+- C++17 compatible compiler (MSVC, GCC, or Clang)
+- CMake 3.15 or later
+- Windows, Linux, or macOS
+
+### Option 2: Python (pip — pure Python, no compilation)
+
+For maximum simplicity with no build step required:
+
+```bash
 pip install TheiaMCR
 ```
 
 **Requirements:**
 - Python 3.9 or later
 - `pyserial`
-- Windows, Linux
+
+This is the recommended approach for most Python users.
+
+### Option 3: Python (pybind11 — compiled, maximum performance)
+
+Build the high-performance Python module from this C++ source:
+
+```bash
+cd build
+cmake ..
+cmake --build .
+```
+
+Then import the module:
+
+```python
+import sys
+sys.path.append("build/Debug")  # or build/Release on Linux
+import TheiaMCR_py as mcr
+```
+
+**Requirements:**
+- C++17 compatible compiler
+- CMake 3.15 or later
+- Python 3.9 or later
+
+This option provides near-C++ performance and is useful if you need advanced features or maximum speed.
 
 ---
 
 ## Quick Start
 
+### C++ Example
+
+```cpp
+#include "TheiaMCR.h"
+#include <iostream>
+#include <thread>
+#include <chrono>
+
+int main() {
+    const char* comport = "COM4";  // Set to your board's COM port
+    
+    // 1. Create MCRControl instance (opens the board connection)
+    auto MCR = new TheiaMCR::MCRControl(comport, true, false, false);
+    if (!MCR->isInitialized()) {
+        std::cerr << "Board not found. Check the COM port." << std::endl;
+        delete MCR;
+        return 1;
+    }
+    
+    // 2. Initialize motors (TL1250 lens)
+    MCR->focusInit(8390, 7959);
+    MCR->zoomInit(3227, 3119);
+    MCR->irisInit(75);
+    MCR->IRCInit();
+    
+    // 3. Move motors
+    MCR->focus.moveAbs(4000);     // move focus to step 4000
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    
+    MCR->zoom.moveRel(-500);      // move zoom 500 steps toward tele
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    
+    MCR->iris.moveAbs(40);        // move iris to step 40
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    
+    MCR->IRC.state(1);            // set IRC to visible (IR-blocking) filter
+    
+    // 4. Close when done
+    MCR->close();
+    delete MCR;
+    return 0;
+}
+```
+
+### Python Example (pip or pybind11)
+
+For the pure Python `TheiaMCR` package from PyPI:
+
 ```python
 import TheiaMCR as mcr
 
 # 1. Open the board connection
-MCR = mcr.MCRControl('com4')
+MCR = mcr.MCRControl('COM4')
 if not MCR.boardInitialized:
     print('Board not found. Check the COM port.')
 
-# 2. Initialize motors (moves each motor to its home/PI position)
+# 2. Initialize motors (TL1250 lens)
 MCR.focusInit(steps=8390, pi=7959)
 MCR.zoomInit(steps=3227, pi=3119)
 MCR.irisInit(steps=75)
@@ -59,6 +154,14 @@ MCR.IRC.state(1)           # set IRC to visible (IR-blocking) filter
 
 # 4. Close when done
 MCR.close()
+```
+
+For the compiled pybind11 module, use the same Python code but import as:
+
+```python
+import sys
+sys.path.append("build/Debug")  # Path to compiled module
+import TheiaMCR_py as mcr
 ```
 
 ---
@@ -125,22 +228,49 @@ Functions that return an integer status use the following error codes:
 | `ERR_MOVE_TIMEOUT` | `-32` | No response before timeout |
 | `ERR_NOT_SUPPORTED` | `-73` | Function not supported for this motor type |
 
-Import and check error codes directly:
+Check error codes directly:
 
-```python
-import TheiaMCR.errList as err
+```cpp
+#include "TheiaMCR.h"
+#include <iostream>
 
-result = MCR.focus.moveAbs(1000)
-if result != err.ERR_OK:
-    print(f'Move failed: {err.decipher(result)}')
+int main() {
+    auto MCR = new TheiaMCR::MCRControl("COM4", true, false, false);
+    MCR->focusInit(8390, 7959);
+    
+    int result = MCR->focus.moveAbs(1000);
+    if (result != 0) {  // 0 = ERR_OK
+        std::cerr << "Move failed: " << result << std::endl;
+    }
+    
+    MCR->close();
+    delete MCR;
+    return 0;
+}
 ```
 
 ---
 
 ## Logging
 
-TheiaMCR writes log messages through Python's standard `logging` module. Log files are saved to the user's local application data directory by default.  For example on Windows: C:\Users\<USER>\AppData\Local\TheiaMCR\log
+TheiaMCR uses [spdlog](https://github.com/gabime/spdlog) for logging. Log files are saved to the user's local application data directory by default. For example on Windows: C:\Users\<USER>\AppData\Local\TheiaMCR\log
 
-- Set `moduleDebugLevel=True` in `MCRControl()` to enable DEBUG-level console output.
-- Set `communicationDebugLevel=True` to print all serial port traffic (not recommended in production).
-- Set `logFiles=False` to suppress log file creation.
+Control logging behavior when creating the MCRControl instance:
+
+```cpp
+// Enable debug-level console output
+auto MCR = new TheiaMCR::MCRControl("COM4", true, false, false);
+
+// Show all serial port traffic (not recommended in production)
+auto MCR = new TheiaMCR::MCRControl("COM4", false, true, false);
+
+// Disable log file creation
+auto MCR = new TheiaMCR::MCRControl("COM4", false, false, false);
+```
+
+Set the library-wide log level:
+
+```cpp
+// Log levels: 0=off, 1=error, 2=warn, 3=info, 4=debug, 5=trace
+TheiaMCR::MCRControl::setLogLevel(3);  // 3 = info
+```
