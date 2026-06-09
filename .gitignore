@@ -1,0 +1,31 @@
+# CMake build directory — run 'cmake ..' inside a build/ subfolder
+build/
+
+# Compiled library output
+*.dll
+*.so
+*.so.*
+*.dylib
+*.pyd
+*.exp
+*.lib
+*.ilk
+*.pdb
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.eggs/
+*.egg
+
+# VS Code workspace settings (keep extensions.json if desired)
+.vscode/
+
+# Runtime log files created by TheiaMCR
+*.log
+TheiaMCR_log*/
+
+# macOS
+.DS_Store
