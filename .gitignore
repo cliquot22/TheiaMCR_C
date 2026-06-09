@@ -29,3 +29,6 @@ TheiaMCR_log*/
 
 # macOS
 .DS_Store
+
+# others
+upload instructions.txt
