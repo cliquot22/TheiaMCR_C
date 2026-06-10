@@ -2,7 +2,7 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO cliquot22/TheiaMCR_C
     REF "v${VERSION}"
-    SHA512 b7225cbbfa275ea183a36e34434d5b1db40a7a3a18907c7fc5ba1b55ecbe07a3dd3d2f1a08b7823a883f2622bbb91a0f1d13f5e082a58e0fee874f90285c8ee3
+    SHA512 97d8730d51a09ba9a22ab86f5e541624e022b319e2731c23c9370994ac95dd69901bbfd69a987b1c20d0a2d634536b61fb4eda047bb19384f5773f87baa280ae  # keep your existing hash
     HEAD_REF main
 )
 
@@ -19,7 +19,12 @@ vcpkg_cmake_configure(
 
 vcpkg_cmake_install()
 
-file(INSTALL "${SOURCE_PATH}/LICENSE" DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}" RENAME copyright)
+# Fix 1: Move CMake config files from lib/cmake to share/${PORT}
+vcpkg_cmake_config_fixup(CONFIG_PATH lib/cmake/TheiaMCR_C)
 
-# Install headers
+# Fix 2: Remove duplicate headers from debug tree
+file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include")
+
+file(INSTALL "${SOURCE_PATH}/license" DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}" RENAME copyright)
+
 vcpkg_copy_pdbs()
