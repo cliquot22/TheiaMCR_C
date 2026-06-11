@@ -4,6 +4,7 @@
   "description": "C++ Motor Control Board Interface - C-linkage shared library and native C++ library for Theia MCR IQ 400 motor control board",
   "homepage": "https://github.com/cliquot22/TheiaMCR_C",
   "license": "MIT",
+  "supports": "windows | linux",
   "dependencies": [
     "spdlog",
     {
@@ -18,8 +19,10 @@
   "features": {
     "python": {
       "description": "Build pybind11 Python module",
+      "supports": "!static & !(windows & arm64)",
       "dependencies": [
-        "pybind11"
+        "pybind11",
+        "python3"
       ]
     }
   }

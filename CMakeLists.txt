@@ -66,6 +66,25 @@ install(EXPORT TheiaMCR_CTargets
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/TheiaMCR_C
 )
 
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/TheiaMCR_CConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/TheiaMCR_CConfig.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/TheiaMCR_C
+)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/TheiaMCR_CConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/TheiaMCR_CConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/TheiaMCR_CConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/TheiaMCR_C
+)
 # ==============================================================================
 # pybind11 Integration (optional)
 # Enabled by vcpkg when the "python" feature is requested, or manually with
