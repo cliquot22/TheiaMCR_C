@@ -16,9 +16,9 @@ import sys
 # C++ module import and setup
 # Automatically find the compiled .pyd module in build directories
 possible_paths = [
-    os.path.join(os.path.dirname(__file__), "..", "build"),
-    os.path.join(os.path.dirname(__file__), "..", "build", "Debug"),
-    os.path.join(os.path.dirname(__file__), "..", "build", "Release"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "build"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "build", "Debug"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "build", "Release"),
 ]
 
 module_found = False
@@ -40,7 +40,7 @@ try:
 except ImportError as e:
     print(f"Error importing TheiaMCR_py: {e}")
     print("Please make sure you compiled the 'TheiaMCR_py' target in VS Code first.")
-    print("Typical output is a 'TheiaMCR_py.pyd' file in the build or build/Debug folder.")
+    print("Typical output is a 'TheiaMCR_py.cp313-win_amd64.pyd' file in the build or build/Debug folder.")
     sys.exit(1)
 
 ########## Example functions ############

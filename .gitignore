@@ -19,6 +19,7 @@ __pycache__/
 dist/
 .eggs/
 *.egg
+.pytest*
 
 # VS Code workspace settings (keep extensions.json if desired)
 .vscode/

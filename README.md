@@ -24,37 +24,74 @@ This repository is the C++ port of the [TheiaMCR Python module](https://github.c
 
 ---
 
-## Prerequisites
+## Getting theiaMCR_C
 
-- A C++ compiler: MSVC (via Visual Studio Build Tools) on Windows, or GCC/Clang on Linux
-- CMake ≥ 3.15
-- For VS Code: install the **C/C++** and **CMake Tools** extensions (both by Microsoft)
+Unlike other languages, C++ does not have a standard built-in package manager like Python's pip. Because of this, the standard and most direct method to integrate the `theiaMCR_C` library into your project is to download the package structure directly without requiring external registries.
+
+### 1. Download prebuilt packages
+Prebuilt binaries compiled for common platforms are published with each release. 
+1. Navigate to the [Releases](https://github.com/cliquot22/TheiaMCR_C/releases) page on GitHub.
+2. Under **Assets** for the latest release, download the package matching your environment:
+   - `theiaMCR_C-v{version}-windows-x64.zip` (for 64-bit Windows)
+   - `theiaMCR_C-v{version}-linux-x64.zip` (for 64-bit Linux)
+   - `theiaMCR_C-v{version}-source.zip` (if you wish to build it yourself from source)
+3. Extract the downloaded `.zip` file. The archive contains:
+   - `include/` — All header files needed to reference functions in your code.
+   - `lib/` — Compiled library binaries (`.dll` and `.lib` for Windows, `.so` for Linux).
 
 ---
 
-## Building the Library
+## Integrating Prebuilt Binaries into Your Project
 
-```bash
-mkdir build
-cd build
-cmake ..
-cmake --build .
+To use the prebuilt binaries in your own projects, you simply need to point your build tool or IDE to the unzipped folders:
+
+### Option A: Using CMake (Recommended)
+If your project uses CMake, add the following pattern to your `CMakeLists.txt` (substituting the path to where you unzipped the package):
+
+```cmake
+# Define the path to your extracted package
+set(THEIA_SDK_DIR "/path/to/extracted/theiaMCR_C")
+
+# Include the headers directory
+target_include_directories(your_target PRIVATE "${THEIA_SDK_DIR}/include")
+
+# Link the binary library
+# On Windows, you link the .lib import library and ensure the .dll is placed alongside your executable.
+# On Linux, link the shared object (.so) directly.
+find_library(THEIA_MCR_LIB TheiaMCR_C HINTS "${THEIA_SDK_DIR}/lib")
+target_link_libraries(your_target PRIVATE ${THEIA_MCR_LIB})
 ```
 
-This produces:
-- `TheiaMCR_C.dll` (Windows) or `libTheiaMCR_C.so` (Linux) — C-linkage shared library
-- `TheiaMCR_py.pyd` (Windows) or `TheiaMCR_py.so` (Linux) — Python pybind11 module
+### Option B: Using Visual Studio (Windows)
+1. Open your project **Properties** in Visual Studio.
+2. Go to **C/C++ -> General -> Additional Include Directories** and add the path to the unzipped `include/` directory.
+3. Go to **Linker -> General -> Additional Library Directories** and add the path to the unzipped `lib/` directory.
+4. Go to **Linker -> Input -> Additional Dependencies** and append `TheiaMCR_C.lib`.
+5. Ensure `TheiaMCR_C.dll` is copied into your final output directory alongside your compiled `.exe` before running.
 
-To also build the C++ example executable:
+---
+
+## Building from Source
+
+If you want to build the SDK from source instead of using prebuilt binaries:
+
+### Prerequisites
+- A C++ compiler: MSVC (Visual Studio) on Windows, or GCC/Clang on Linux.
+- CMake ≥ 3.15.
+
+### Building
+1. Download and unzip the `theiaMCR_C-v{version}-source.zip` or clone the repository.
+2. From the root directory, configure and build using CMake:
+
 ```bash
-cmake -DBUILD_EXAMPLES=ON ..
-cmake --build .
-# Run the example (set comport in Examples/cpp/Example_3.5.cpp before building)
-.\Debug\Example_3.5.exe        # Windows
-./Example_3.5                  # Linux
+# Configure the build system (produces Release configuration files)
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+# Compile the library
+cmake --build build --config Release
 ```
 
-> **Note:** C++ programs must be compiled before running. Unlike Python scripts, a `.cpp` file cannot be executed directly from the terminal.
+The resulting library binaries will be located under your `build/` (or `build/Release/`) folder.
 
 ---
 
