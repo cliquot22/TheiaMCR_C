@@ -21,7 +21,7 @@ jobs:
       - name: Setup Python (for dependencies/testing)
         uses: actions/setup-python@v5
         with:
-          python-size: '3.11'
+          python-version: '3.11'
           python-version: '3.11'
 
       - name: Install System Dependencies (Linux)
