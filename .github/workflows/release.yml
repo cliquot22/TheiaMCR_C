@@ -6,90 +6,72 @@ on:
       - 'v*'
 
 jobs:
-  build-release:
-    name: Build & Package Release
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    
+  build-windows:
+    name: Build & Package (Windows)
+    runs-on: windows-latest
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4
 
-      - name: Setup Python (for dependencies/testing)
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Configure CMake
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
-      - name: Install System Dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libspdlog-dev build-essential zip
-          
-      - name: Configure CMake (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+      - name: Build Library
+        run: cmake --build build --config Release
 
-      - name: Configure CMake (Linux)
-        if: runner.os == 'Linux'
+      - name: List build output
         run: |
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          dir build\Release || dir build
 
-      - name: Build Library (Release)
-        run: |
-          cmake --build build --config Release
-
-      - name: Create Release Packages (Windows)
-        if: runner.os == 'Windows'
+      - name: Create Release Package
         shell: pwsh
         run: |
           $Version = "${{ github.ref_name }}".TrimStart('v')
           $PackageDir = "theiaMCR_C-v$Version-windows-x64"
-          New-Item -ItemType Directory -Path $PackageDir
-          New-Item -ItemType Directory -Path "$PackageDir/lib"
-          New-Item -ItemType Directory -Path "$PackageDir/include"
-          
-          # Copy headers
+          New-Item -ItemType Directory -Path "$PackageDir/lib" -Force
+          New-Item -ItemType Directory -Path "$PackageDir/include" -Force
           Copy-Item -Path "include/*" -Destination "$PackageDir/include" -Recurse
-          
-          # Copy library binaries
-          Copy-Item -Path "build/Release/TheiaMCR_C.dll" -Destination "$PackageDir/lib/"
-          Copy-Item -Path "build/Release/TheiaMCR_C.lib" -Destination "$PackageDir/lib/"
-          
-          # Create zip archive
+          $dll = Get-ChildItem -Recurse -Filter "TheiaMCR_C.dll" | Select-Object -First 1
+          $lib = Get-ChildItem -Recurse -Filter "TheiaMCR_C.lib" | Select-Object -First 1
+          if ($dll) { Copy-Item $dll.FullName "$PackageDir/lib/" }
+          if ($lib) { Copy-Item $lib.FullName "$PackageDir/lib/" }
           Compress-Archive -Path $PackageDir -DestinationPath "$PackageDir.zip"
-          Move-Item -Path "$PackageDir.zip" -Destination "."
 
-      - name: Create Release Packages (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
-          PACKAGE_DIR="theiaMCR_C-v${VERSION}-linux-x64"
-          mkdir -p "$PACKAGE_DIR/lib"
-          mkdir -p "$PACKAGE_DIR/include"
-          
-          # Copy headers
-          cp -r include/* "$PACKAGE_DIR/include/"
-          
-          # Copy library binaries
-          cp build/libTheiaMCR_C.so "$PACKAGE_DIR/lib/"
-          
-          # Create zip archive
-          zip -r "${PACKAGE_DIR}.zip" "$PACKAGE_DIR"
-
-      - name: Upload Binary Artifacts (Windows)
-        if: runner.os == 'Windows'
+      - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-artifact
           path: theiaMCR_C-*-windows-x64.zip
 
-      - name: Upload Binary Artifacts (Linux)
-        if: runner.os == 'Linux'
+  build-linux:
+    name: Build & Package (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Install Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential zip
+
+      - name: Configure CMake
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Library
+        run: cmake --build build --config Release
+
+      - name: Create Release Package
+        run: |
+          VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          PACKAGE_DIR="theiaMCR_C-v${VERSION}-linux-x64"
+          mkdir -p "$PACKAGE_DIR/lib"
+          mkdir -p "$PACKAGE_DIR/include"
+          cp -r include/* "$PACKAGE_DIR/include/"
+          find build -name "libTheiaMCR_C.so*" -exec cp {} "$PACKAGE_DIR/lib/" \;
+          zip -r "${PACKAGE_DIR}.zip" "$PACKAGE_DIR"
+
+      - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-artifact
@@ -97,13 +79,13 @@ jobs:
 
   create-github-release:
     name: Create GitHub Release
-    needs: build-release
+    needs: [build-windows, build-linux]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4
 
-      - name: Download Artifacts
+      - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -113,18 +95,10 @@ jobs:
           VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
           SRC_DIR="theiaMCR_C-v${VERSION}-source"
           mkdir -p "$SRC_DIR"
-          
-          # Copy source directories and core configuration files
-          cp -r src "$SRC_DIR/"
-          cp -r include "$SRC_DIR/"
-          cp CMakeLists.txt "$SRC_DIR/"
-          cp README.md "$SRC_DIR/"
-          cp LICENSE "$SRC_DIR/"
-          
-          # Zip source directory
+          cp -r src include CMakeLists.txt README.md LICENSE "$SRC_DIR/"
           zip -r "${SRC_DIR}.zip" "$SRC_DIR"
 
-      - name: Create and Upload Assets to Release
+      - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
