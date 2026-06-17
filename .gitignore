@@ -20,6 +20,7 @@ dist/
 .eggs/
 *.egg
 .pytest*
+.venv
 
 # VS Code workspace settings (keep extensions.json if desired)
 .vscode/
