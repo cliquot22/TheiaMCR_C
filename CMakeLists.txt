@@ -5,13 +5,20 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ==============================================================================
-# Dependencies
+# Dependencies (spdlog fetching)
 # ==============================================================================
-# Try CONFIG mode first (vcpkg supplies this); fall back to MODULE for non-vcpkg builds
+# Attempt to find spdlog on the local host system first.
+# If not found (like on fresh CI runners), fetch it automatically from GitHub.
 find_package(spdlog CONFIG QUIET)
 if(NOT spdlog_FOUND)
-    message(STATUS "spdlog not found via CONFIG, trying MODULE mode")
-    find_package(spdlog REQUIRED MODULE)
+    message(STATUS "Local spdlog not found. Fetching spdlog from GitHub...")
+    include(FetchContent)
+    FetchContent_Declare(
+        spdlog
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.12.0
+    )
+    FetchContent_MakeAvailable(spdlog)
 endif()
 
 # ==============================================================================
@@ -44,7 +51,7 @@ else()
 endif()
 
 # ==============================================================================
-# Install rules (required for vcpkg and standard cmake --install)
+# Install rules (required for standard cmake --install)
 # ==============================================================================
 include(GNUInstallDirs)
 
@@ -85,10 +92,9 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/TheiaMCR_CConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/TheiaMCR_C
 )
+
 # ==============================================================================
 # pybind11 Integration (optional)
-# Enabled by vcpkg when the "python" feature is requested, or manually with
-# -DENABLE_PYTHON_BINDINGS=ON
 # ==============================================================================
 option(ENABLE_PYTHON_BINDINGS "Build pybind11 Python bindings" OFF)
 
@@ -118,7 +124,6 @@ endif()
 
 # ==============================================================================
 # C++ Examples (optional)
-# Enable with: cmake -DBUILD_EXAMPLES=ON ..
 # ==============================================================================
 option(BUILD_EXAMPLES "Build C++ example executables" OFF)
 if(BUILD_EXAMPLES)

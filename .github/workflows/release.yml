@@ -27,7 +27,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libspdlog-dev libsetupapi-dev build-essential zip
+          sudo apt-get install -y libspdlog-dev build-essential zip
           
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
@@ -134,4 +134,4 @@ jobs:
           draft: false
           prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: *** secrets.GITHUB_TOKEN }}
