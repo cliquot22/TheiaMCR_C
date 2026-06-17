@@ -5,21 +5,23 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ==============================================================================
-# Dependencies (spdlog fetching)
+# Dependencies
 # ==============================================================================
-# Attempt to find spdlog on the local host system first.
-# If not found (like on fresh CI runners), fetch it automatically from GitHub.
-find_package(spdlog CONFIG QUIET)
-if(NOT spdlog_FOUND)
-    message(STATUS "Local spdlog not found. Fetching spdlog from GitHub...")
-    include(FetchContent)
-    FetchContent_Declare(
-        spdlog
-        GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.12.0
-    )
-    FetchContent_MakeAvailable(spdlog)
-endif()
+# We now include the lightweight header-only spdlog library directly inside 
+# the 'include/' folder of the repository. This guarantees offline, 
+# platform-agnostic, and lightning-fast builds on all development 
+# machines and CI/CD servers.
+#
+# If spdlog is built as a header-only library, we define its target properties:
+add_library(spdlog INTERFACE)
+target_include_directories(spdlog INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+target_compile_definitions(spdlog INTERFACE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
+
+# Map spdlog::spdlog alias to maintain backward compatibility with project files
+add_library(spdlog::spdlog ALIAS spdlog)
 
 # ==============================================================================
 # Core shared library
@@ -45,9 +47,9 @@ set_target_properties(TheiaMCR_C PROPERTIES
 
 if(MSVC)
     target_compile_definitions(TheiaMCR_C PRIVATE "THEIAMCR_C_EXPORTS")
-    target_link_libraries(TheiaMCR_C PRIVATE setupapi spdlog::spdlog)
+    target_link_libraries(TheiaMCR_C PRIVATE setupapi spdlog)
 else()
-    target_link_libraries(TheiaMCR_C PRIVATE spdlog::spdlog)
+    target_link_libraries(TheiaMCR_C PRIVATE spdlog)
 endif()
 
 # ==============================================================================
@@ -62,7 +64,7 @@ install(TARGETS TheiaMCR_C
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-# Installs SimpleSerial.h, TheiaMCR_C.h, and TheiaMCR.h
+# Installs all files in include/ (including spdlog headers)
 install(DIRECTORY include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
@@ -111,9 +113,9 @@ if(ENABLE_PYTHON_BINDINGS)
     target_include_directories(TheiaMCR_py PRIVATE include)
 
     if(MSVC)
-        target_link_libraries(TheiaMCR_py PRIVATE setupapi spdlog::spdlog)
+        target_link_libraries(TheiaMCR_py PRIVATE setupapi spdlog)
     else()
-        target_link_libraries(TheiaMCR_py PRIVATE spdlog::spdlog)
+        target_link_libraries(TheiaMCR_py PRIVATE spdlog)
     endif()
 
     install(TARGETS TheiaMCR_py
@@ -134,8 +136,8 @@ if(BUILD_EXAMPLES)
     )
     target_include_directories(Example_3.5 PRIVATE include)
     if(MSVC)
-        target_link_libraries(Example_3.5 PRIVATE setupapi spdlog::spdlog)
+        target_link_libraries(Example_3.5 PRIVATE setupapi spdlog)
     else()
-        target_link_libraries(Example_3.5 PRIVATE spdlog::spdlog)
+        target_link_libraries(Example_3.5 PRIVATE spdlog)
     endif()
 endif()
