@@ -107,11 +107,17 @@ void SimpleSerial::close() {
 
 #ifdef _WIN32
     if (hSerial != INVALID_HANDLE_VALUE) {
+        // v.3.5.1 bug fix: flush buffers before closing
+        PurgeComm(static_cast<HANDLE>(hSerial), 
+                  PURGE_RXABORT | PURGE_RXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR);
         CloseHandle(static_cast<HANDLE>(hSerial));
         hSerial = INVALID_HANDLE_VALUE;
     }
 #else
     if (fd != -1) {
+        // v.3.5.1 bug fix: flush buffers before closing
+        tcdrain(fd);  // Wait for output to drain
+        tcflush(fd, TCIOFLUSH);  // Flush input and output
         ::close(fd);
         fd = -1;
     }

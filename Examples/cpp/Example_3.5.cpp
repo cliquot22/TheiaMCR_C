@@ -14,7 +14,7 @@
 // A MCR600-series control board must be connected to the computer via USB.
 // Set the 'comport' variable in main() below.
 //
-// Updated for MCR version 3.4
+// Updated for MCR version 3.5
 
 #include "TheiaMCR.h"
 #include <iostream>
@@ -130,6 +130,7 @@ void motorConfigurationExample(const std::string& comport) {
     sleep_ms(500);
 
     // Read it back
+    std::cout << "Reading zoom motor configuration\n";
     auto [ok, motorType, leftStop, rightStop, maxSteps, minSpeed, maxSpeed, errorVal]
         = MCR->zoom.readMotorSetup();
     if (ok) {
@@ -171,6 +172,39 @@ void limitsExample(const std::string& comport, const std::string& lensType) {
     delete MCR;
 }
 
+// Example 5: Close log files while keeping console logging active
+void closeLogFileExample(const std::string& comport, const std::string& lensType) {
+    auto* MCR = init(comport, lensType);
+    if (!MCR) return;
+
+    // Close log files (console logging continues)
+    std::cout << "Closing log files\n";
+    MCR->closeLogFiles();
+    
+    // Subsequent operations still log to console but not to file
+    MCR->focus.home();
+    std::cout << "Focus homed (logged to console only)\n";
+
+    MCR->close();
+    delete MCR;
+}
+
+// Example 6: Proper resource cleanup on program exit
+void closeExample(const std::string& comport) {
+    auto* MCR = init(comport);
+    if (!MCR) return;
+
+    std::cout << "Closing and releasing resources\n";
+    MCR->close();
+    
+    // After close(), the board is no longer accessible
+    std::cout << "Resources released. Board is no longer accessible.\n";
+    
+    // Clean up the MCR object
+    delete MCR;
+    MCR = nullptr;
+}
+
 
 int main() {
     // ---------------------------------------------------------------
@@ -198,6 +232,12 @@ int main() {
 
     // Example 4: Move past the PI home position (limits disabled)
     // limitsExample(comport, lensType);
+
+    // Example 5: Close log files while keeping console logging
+    // closeLogFileExample(comport, lensType);
+
+    // Example 6: Proper resource cleanup before program exit
+    // closeExample(comport);
 
     return 0;
 }

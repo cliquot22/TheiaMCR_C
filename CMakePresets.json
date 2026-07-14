@@ -3,13 +3,9 @@
   "configurePresets": [
     {
       "name": "default",
-      "displayName": "Default (vcpkg)",
+      "displayName": "Default",
       "generator": "Visual Studio 18 2026",
-      "architecture": "x64",
-      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
+      "architecture": "x64"
     },
     {
       "name": "python",
@@ -18,6 +14,37 @@
       "cacheVariables": {
         "ENABLE_PYTHON_BINDINGS": "ON"
       }
+    },
+    {
+      "name": "examples",
+      "displayName": "With C++ Examples",
+      "inherits": "default",
+      "cacheVariables": {
+        "BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "python-examples",
+      "displayName": "With Python bindings and C++ Examples",
+      "inherits": "default",
+      "cacheVariables": {
+        "ENABLE_PYTHON_BINDINGS": "ON",
+        "BUILD_EXAMPLES": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "configurePreset": "python-examples",
+      "configuration": "Debug"
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "configurePreset": "python-examples",
+      "configuration": "Release"
     }
   ]
 }

@@ -1,0 +1,16 @@
+# TheiaMCR_C Revision History
+
+v.3.5.1 260713 Synchronized with Python TheiaMCR v.3.5.1
+                build: Removed VCPKG references, transitioned to direct GitHub downloads
+                build: Fixed MSVC compilation errors by disabling _SECURE_SCL for spdlog fmt library
+                bug: sendCmd() check for 0-length command 
+                bug: fixed error propagation if sendCmd() returns an error in moveAbs() and home()
+                bug: fixed close() function to properly flush buffers and release resources
+                bug: fixed IRC filter switch constants (switchTime: 100→50ms, speed: 400→1000pps)
+                bug: added IRC default speeds in IRCInit() (currentSpeed, homingSpeed = 1000pps)
+v.3.5.0 250605 Initial C++ port with homing speed parameter support
+                Full implementation of Python TheiaMCR API in C++
+                Added C-linkage wrapper library (TheiaMCR_C)
+                Added pybind11 Python bindings (TheiaMCR_py)
+                Logging system using spdlog
+                Cross-platform serial communication (Windows/Linux)

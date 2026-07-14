@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "theiamcr-c"
-version = "3.5.0"
+version = "3.5.1"
 description = "C++ Motor Control Board Interface - Python bindings for Theia MCR IQ 400 motor control board"
 readme = "README.md"
 license = {file = "license"}

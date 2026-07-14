@@ -1,9 +1,9 @@
 # Example for using TheiaMCR module.  
 # A MCR600 series control board must be connected to the Windows comptuer via USB.  
-# Set the virtual comport name in the variable 'comport' of the main program (starting approx line 285)
+# Set the virtual comport name in the variable 'comport' of the main program (in setup() function)
 #
-# updated for MCR version 3.2
-
+# updated for MCR version 3.5
+#
 # pyright: reportOptionalMemberAccess=false
 # pyright: reportMissingImports=false
 
@@ -12,6 +12,39 @@ import time
 import os
 import serial.tools.list_ports
 import sys
+import gc
+
+######################
+### setup test suite, comport, and lens type in this function
+######################
+def setup():
+    # lens types
+    # test selection
+    # 1: search com ports and list all connected devices
+    # 2: initialize the board and motors
+    # 3: read and write a motor configuration (steps, speed, etc.)
+    # 4: move motors
+    # 5: turn off PI limit to show moving past PI position
+    # 6: close the background logging file 
+    # 7: close and release resources before exiting a program
+    # 8: (low level) show the byte string communications back and forth to the board 
+    
+    runTest = [2]   ### select the test numbers to run (can be multiple)
+    lensType = 1    # 0: 'TL410', 1: 'TL1250'
+    
+    if runTest == []:
+        log.info('Select the tests and set variables in the main program setup() function. ')
+        sys.exit(0)
+    if os.name == 'nt':
+        comport = 'COM4'
+    else:
+        comport = '/dev/ttyUSB0'
+        # in Lunux make sure there is permission to access the port (sudo usermod -a -G dialout $USER)
+    return comport, runTest, lensType
+######################
+
+
+
 
 # C++ module import and setup
 # Automatically find the compiled .pyd module in build directories
@@ -19,6 +52,13 @@ possible_paths = [
     os.path.join(os.path.dirname(__file__), "..", "..", "build"),
     os.path.join(os.path.dirname(__file__), "..", "..", "build", "Debug"),
     os.path.join(os.path.dirname(__file__), "..", "..", "build", "Release"),
+    # VS Code CMake Tools output directories
+    os.path.join(os.path.dirname(__file__), "..", "..", "out", "build", "python"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "out", "build", "python", "Debug"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "out", "build", "python", "Release"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "out", "build", "python-examples"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "out", "build", "python-examples", "Debug"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "out", "build", "python-examples", "Release"),
 ]
 
 module_found = False
@@ -43,7 +83,8 @@ except ImportError as e:
     print("Typical output is a 'TheiaMCR_py.cp313-win_amd64.pyd' file in the build or build/Debug folder.")
     sys.exit(1)
 
-########## Example functions ############
+lensTypes = ['TL410', 'TL1250']    
+
 def searchComPorts():
     '''
     Search the connected com ports.  
@@ -85,6 +126,7 @@ def init(comport:str, lensType:str='TL1250', moduleDebugLevel=False, communicati
     log.info('Response (above) in the form: "FW revision: #.#.#.#.#"')
     
     # initialize the motors
+    # NOTE: not including homingSpeed in focusInit(), etc. will set the speed to default.  Ignore the warning from MCR.  
     if 'TL1250' in lensType:
         # TL1250 (TW60 or TW90)
         MCR.focusInit(steps=8390, pi=7959)
@@ -122,7 +164,11 @@ def motorConfiguration(comport:str, lensType:str='TL1250'):
 
     # read focus motor configuration (id = 0x01)
     log.info('Read motor configuration')
-    success, motorType, leftStop, rightStop, maxSteps, minSpeed, maxSpeed, errorVal = MCR.zoom.readMotorSetup()
+    if not MCR.zoom.initialized: 
+        log.error('Zoom lens initialization failed in init() function')
+        return 
+    # or check for zoom motor not initizlized afterwards with try: \ success... = MCR.zoom.readMotorSetup() \ if success... \ except (ValueError, TypeError): ...
+    success, motorType, leftStop, rightStop, maxSteps, minSpeed, maxSpeed, errorVal = MCR.zoom.readMotorSetup()  #type: ignore
     if success:
         log.info(f'Motor type: {motorType}, use stops: ({leftStop},{rightStop}), max steps: {maxSteps}, speed range ({minSpeed},{maxSpeed}), error: {errorVal}')
     else:
@@ -232,9 +278,13 @@ def close(comport:str):
     MCR.close()
     log.info('Resources released, this should give an ERROR:')
     try: 
-        MCR.MCRBoard.readBoardSN()
+        MCR.readBoardSN()
     except:
         log.info('ERROR: No board response')
+    
+    # Explicitly delete the MCR variable to ensure Windows releases the COM port handle
+    del MCR
+    gc.collect()
 
 def viewCommunications(comport:str):
     '''
@@ -248,7 +298,7 @@ def viewCommunications(comport:str):
     '''
     MCR = init(comport)
 
-    # set up to see logging from TheiaMCR (level 5 = trace = communication debug)
+    # set up to see logging from TheiaMCR (level 5 = trace = communication debug) using "mcr" module level (not "MCR" instance level)
     mcr.setLogLevel(5)
 
     # move the lens
@@ -270,83 +320,12 @@ def viewCommunications(comport:str):
     mcr.setLogLevel(3)  # back to info level
 
 
-def changeComPathExample(comport:str):
-    '''
-    Example: change the communication path to the board.  
-    New com path can be a string name or integer ['USB' | 1, 'UART' | 2, 'I2C' | 0].    
-    Set the new path in the function but beware that communication over USB will be disabled and the board
-    will have to be factory reset to restore USB communication.  
-    See section 3.3.6 in the operator's manual for factory reset of the board at https://theiatech.com/mcr
-    ### input
-    - comport: com port string ('com4' for example)
-    '''
-    # create the motor control board instance
-    MCR = mcr.MCRControl(comport)
-    time.sleep(1)
-
-    # new communication path
-    log.info('Setting new communications path')
-    MCR.MCRBoard.setCommunicationPath('USB')
-
-    # wait >700ms for board to reboot
-    time.sleep(1)
-
-def serialPortConnectionLose(comport:str, lensType:str='TL1250'):
-    '''
-    Example: if the communication to the com port os lost at some point (unintentionally), the MCR module 
-    will attempt to reconnect to the port.  This may cause a position error in the lens due to the move 
-    not completing correctly.  
-    ### input:
-    - comport: com port string ('com4' for example)
-    - lensType: lens model [TL410 | TL1250]
-    '''
-    MCR = init(comport, lensType)
-
-    # lost connection to the com port (don't do this)
-    MCR.serialPort.close()
-    log.info(f'Simulating serial port {comport} connection lost')
-
-    # subsequent commands to TheiaMCR will attempt to reconnect to the port
-    response = MCR.focus.moveAbs(4000)
-    log.info(f'Move response: {"OK" if response == mcr.errList.ERR_OK else response}')
-    # check the error list to see if there was a serial port error (check the top level class)
-    # Check the error list lastest [-1] error number [0] to match the ERR_SERIAL_PORT error code (-64)
-    #  or check for incremented boardCommunicationRestart variable.
-    if mcr.errList.finalError[-1][0] == mcr.errList.ERR_SERIAL_PORT:
-        log.error(f'Serial port connection error was created: {mcr.errList.finalError}')
-    log.info(f'Number of automatic reconnections: {MCR.boardCommunicationRestart}')
-
 
 if __name__ == '__main__':
     log = logging.getLogger(__name__)
     logging.basicConfig(level=logging.DEBUG, format='%(levelname)-7s ln:%(lineno)-4d %(module)-18s  %(message)s')
 
-    # lens types
-    lensTypes = ['TL410', 'TL1250']
-    # test selection
-    # 1: search com ports and list all connected devices
-    # 2: initialize the board and motors
-    # 3: read and write a motor configuration (steps, speed, etc.)
-    # 4: move motors
-    # 5: turn off PI limit to show moving past PI position
-    # 6: close the background logging file 
-    # 7: close and release resources before exiting a program
-    # 8: (low level) show the byte string communications back and forth to the board 
-    # 9: change the input protocol from USB to UART or I2C 
-    # 10: reconnect to the com port in case of lost connection 
-    
-    runTest = [2]   ### select the test numbers to run (can be multiple)
-    lensType = 1    # 0: 'TL410', 
-                    # 1: 'TL1250'
-    
-    if runTest == []:
-        log.info('Select the tests and set variables in the main program starting at approx line 285 in this file. ')
-        sys.exit(0)
-    if os.name == 'nt':
-        comport = 'COM4'
-    else:
-        comport = '/dev/ttyUSB0'
-        # in Lunux make sure there is permission to access the port (sudo usermod -a -G dialout $USER)
+    comport, runTest, lensType = setup()
 
     if 0 in runTest or len(runTest) == 0:
         log.info('Set the test numbers in the variable "runTest"')
@@ -376,10 +355,4 @@ if __name__ == '__main__':
     if 8 in runTest:
         log.info('8: (low level) show the byte string communications back and forth to the board')
         viewCommunications(comport)
-    if 9 in runTest:
-        log.info('9: change the input protocol from USB to UART or I2C')
-        changeComPathExample(comport)
-    if 10 in runTest:
-        log.info('10: demonstrate reconnection to the com port in case of lost connection')
-        serialPortConnectionLose(comport, lensTypes[lensType])
     log.info('Done')

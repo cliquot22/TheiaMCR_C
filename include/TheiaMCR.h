@@ -11,7 +11,7 @@
 
 namespace TheiaMCR {
 
-constexpr const char* MCR_REVISION = "v.3.5.0";
+constexpr const char* MCR_REVISION = "v.3.5.1";
 
 class MCRControl; // Forward declaration
 

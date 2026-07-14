@@ -101,7 +101,11 @@ bool Motor::moveAbs(int steps, int speed) {
         uint8_t homeCmd[8] = {0x66, motorID, static_cast<uint8_t>((maxSteps >> 8) & 0xFF), static_cast<uint8_t>(maxSteps & 0xFF), 1, static_cast<uint8_t>((speed >> 8) & 0xFF), static_cast<uint8_t>(speed & 0xFF), 0x0D};
         std::vector<uint8_t> irisCmd(homeCmd, homeCmd + 8);
         std::vector<uint8_t> irisResp;
-        parent->sendCmd(irisCmd, irisResp, 1000);
+        // v.3.5.1 bug fix: check error propagation from sendCmd
+        if (!parent->sendCmd(irisCmd, irisResp, 1000)) {
+            MCR_LOG_WARN("moveAbs motor={:#04x} iris home command failed", motorID);
+            return false;
+        }
 
         cmdByte = 0x62;
         stepDist = steps;
@@ -137,7 +141,10 @@ bool Motor::moveAbs(int steps, int speed) {
             std::vector<uint8_t> backResp;
             int backWait = static_cast<int>((awaySteps / static_cast<double>(speed)) * 1000 * 1.15) + 500;
             MCR_LOG_DEBUG("moveAbs motor={:#04x} backing away {} steps before homing", motorID, awaySteps);
-            parent->sendCmd(backCmd, backResp, backWait);
+            // v.3.5.1 bug fix: check error propagation from sendCmd
+            if (!parent->sendCmd(backCmd, backResp, backWait)) {
+                MCR_LOG_WARN("moveAbs motor={:#04x} backing away command failed", motorID);
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }
     }
@@ -252,7 +259,10 @@ bool Motor::home() {
         std::vector<uint8_t> backResp;
         int backWait = static_cast<int>((awaySteps / static_cast<double>(speed)) * 1000 * 1.15) + 500;
         MCR_LOG_DEBUG("home motor={:#04x} backing {} steps before seek", motorID, awaySteps);
-        parent->sendCmd(backCmd, backResp, backWait);
+        // v.3.5.1 bug fix: check error propagation from sendCmd
+        if (!parent->sendCmd(backCmd, backResp, backWait)) {
+            MCR_LOG_WARN("home motor={:#04x} backing away command failed", motorID);
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 
@@ -348,8 +358,8 @@ bool Motor::setRespectLimits(bool state) {
 
 int Motor::state(int newState) {
     if (!parent || motorID != 0x04) return 0; // IRC only
-    int switchTime = 100;
-    int speed = 400;
+    int switchTime = 50;   // MCR_IRC_SWITCH_TIME (ms) - matches Python
+    int speed = 1000;      // MCR_IRC_DEFAULT_SPEED (pps) - matches Python
     int steps = (newState == 1) ? -switchTime : switchTime;
     std::vector<uint8_t> cmd(8);
     uint8_t cmdByte = (steps >= 0) ? 0x66 : 0x62;
@@ -448,8 +458,25 @@ MCRControl::~MCRControl() {
 
 void MCRControl::close() {
     MCR_LOG_INFO("Closing board connection on {}", serialPortName);
-    serial.close();
-    boardInitialized = false;
+    
+    // v.3.5.1 bug fix: properly release all resources
+    if (boardInitialized) {
+        // Flush and close serial port
+        serial.close();
+        
+        // Reset motor objects to non-initialized state
+        focus = Motor();
+        zoom = Motor();
+        iris = Motor();
+        IRC = Motor();
+        
+        boardInitialized = false;
+        
+#ifdef _WIN32
+        // Give Windows time to fully release the COM port handle
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+#endif
+    }
 }
 
 void MCRControl::closeLogFiles() {
@@ -527,11 +554,20 @@ bool MCRControl::IRCInit() {
     if (!boardInitialized) return false;
     MCR_LOG_INFO("IRC init");
     IRC = Motor(this, 0x04, 1000, 0);
+    IRC.currentSpeed = 1000;  // MCR_IRC_DEFAULT_SPEED - matches Python
+    IRC.homingSpeed = 1000;   // MCR_IRC_DEFAULT_SPEED - matches Python
     return true;
 }
 
 bool MCRControl::sendCmd(const std::vector<uint8_t>& cmd, std::vector<uint8_t>& response, int waitTimeMs) {
     if (!boardInitialized) return false;
+
+    // v.3.5.1 bug fix: check for 0-length command
+    if (cmd.empty()) {
+        MCR_LOG_ERROR("Command string is empty");
+        response = {0x74, 0x01, 0x0D};
+        return false;
+    }
 
     // Log outgoing bytes at trace level (communicationDebugLevel)
     if (g_logger && g_logger->level() <= spdlog::level::trace) {

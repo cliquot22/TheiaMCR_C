@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(TheiaMCR_C VERSION 3.5.0 LANGUAGES CXX)
+project(TheiaMCR_C VERSION 3.5.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -18,7 +18,10 @@ target_include_directories(spdlog INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_compile_definitions(spdlog INTERFACE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
+target_compile_definitions(spdlog INTERFACE 
+    SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO
+    $<$<CXX_COMPILER_ID:MSVC>:_SECURE_SCL=0>
+)
 
 # Map spdlog::spdlog alias to maintain backward compatibility with project files
 add_library(spdlog::spdlog ALIAS spdlog)
@@ -102,7 +105,19 @@ option(ENABLE_PYTHON_BINDINGS "Build pybind11 Python bindings" OFF)
 
 if(ENABLE_PYTHON_BINDINGS)
     find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-    find_package(pybind11 CONFIG REQUIRED)
+    
+    # Try to find pybind11, if not found, fetch it automatically
+    find_package(pybind11 CONFIG QUIET)
+    if(NOT pybind11_FOUND)
+        message(STATUS "pybind11 not found, fetching from GitHub...")
+        include(FetchContent)
+        FetchContent_Declare(
+            pybind11
+            GIT_REPOSITORY https://github.com/pybind/pybind11.git
+            GIT_TAG        v2.13.6
+        )
+        FetchContent_MakeAvailable(pybind11)
+    endif()
 
     pybind11_add_module(TheiaMCR_py
         src/TheiaMCR_pybind11.cpp

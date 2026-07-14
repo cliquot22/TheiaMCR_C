@@ -1,0 +1,121 @@
+# .github/workflows/cra-security-report.yml
+#
+# Generates a CRA §2(3) security evidence report on every release and on demand.
+# Exports SBOM, CodeQL SAST results, and Dependabot SCA alerts into a single
+# self-contained HTML report, uploaded as a 1-year artifact and attached to the
+# GitHub Release as a download.
+#
+# Place this file at:  .github/workflows/cra-security-report.yml
+# Place the script at: .github/scripts/generate_cra_report.py
+#
+# Prerequisites (already enabled per your setup):
+#   Settings → Code security → Dependency graph:     ON
+#   Settings → Code security → Dependabot alerts:    ON
+#   Settings → Code security → Code scanning (CodeQL): ON
+#
+# No secrets or PATs needed — GITHUB_TOKEN handles everything.
+
+name: CRA Security Evidence Report
+
+on:
+  release:
+    types: [published]    # runs automatically when you publish a release
+  workflow_dispatch:       # also available as a manual trigger from the Actions tab
+
+permissions:
+  contents: write          # attach files to releases; read repository
+  security-events: read   # read CodeQL and Dependabot alerts
+
+jobs:
+  cra-evidence:
+    name: "CRA §2(3) Evidence Report"
+    runs-on: ubuntu-latest
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO:     ${{ github.repository }}
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create report directory
+        run: mkdir -p report
+
+      # ── 1. SBOM (CRA Annex I Part II §1) ───────────────────────────────────
+      - name: Export SBOM
+        run: |
+          echo "→ Fetching SBOM from dependency-graph API..."
+          HTTP=$(curl -s -o /tmp/sbom_raw.json -w "%{http_code}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPO/dependency-graph/sbom")
+
+          if [ "$HTTP" = "200" ]; then
+            # The response wraps the SPDX doc in a "sbom" key; unwrap it
+            jq '.sbom // .' /tmp/sbom_raw.json > report/sbom.spdx.json
+            COUNT=$(jq '.packages | length // 0' report/sbom.spdx.json)
+            echo "✓ SBOM exported: $COUNT packages"
+          else
+            echo '{"spdxVersion":"SPDX-2.3","name":"unavailable","packages":[]}' \
+              > report/sbom.spdx.json
+            echo "✗ SBOM unavailable (HTTP $HTTP) — dependency graph may not be enabled"
+          fi
+
+      # ── 2. CodeQL SAST alerts (CRA §2(3) evidence) ──────────────────────────
+      - name: Export code scanning alerts
+        run: |
+          echo "→ Fetching code scanning alerts..."
+          for STATE in open dismissed; do
+            # --jq '.[]' emits one item per line; jq -s '.' collects into a single array
+            gh api --paginate \
+              "repos/$REPO/code-scanning/alerts?state=$STATE&per_page=100" \
+              --jq '.[]' 2>/dev/null \
+              | jq -s '.' > report/code-scanning-${STATE}.json \
+              || echo '[]' > report/code-scanning-${STATE}.json
+          done
+          echo "✓ Code scanning: $(jq length report/code-scanning-open.json) open," \
+            "$(jq length report/code-scanning-dismissed.json) dismissed"
+
+      # ── 3. Dependabot SCA alerts (CRA §2(3) evidence) ───────────────────────
+      - name: Export Dependabot alerts
+        run: |
+          echo "→ Fetching Dependabot alerts..."
+          for STATE in open dismissed; do
+            gh api --paginate \
+              "repos/$REPO/dependabot/alerts?state=$STATE&per_page=100" \
+              --jq '.[]' 2>/dev/null \
+              | jq -s '.' > report/dependabot-${STATE}.json \
+              || echo '[]' > report/dependabot-${STATE}.json
+          done
+          echo "✓ Dependabot: $(jq length report/dependabot-open.json) open," \
+            "$(jq length report/dependabot-dismissed.json) dismissed"
+
+      # ── 4. Generate HTML report ─────────────────────────────────────────────
+      - name: Generate HTML report
+        env:
+          GH_REPO:   ${{ github.repository }}
+          GH_REF:    ${{ github.ref_name }}
+          GH_SHA:    ${{ github.sha }}
+          GH_RUN_ID: ${{ github.run_id }}
+        run: python3 .github/scripts/generate_cra_report.py
+
+      # ── 5. Upload evidence bundle (retained 1 year) ──────────────────────────
+      - name: Upload evidence bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: cra-evidence-${{ github.ref_name }}-${{ github.run_number }}
+          path: report/
+          retention-days: 365
+
+      # ── 6. Attach to release (HTML report + SBOM JSON) ──────────────────────
+      - name: Attach to release
+        if: github.event_name == 'release'
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            report/cra-evidence-report.html \
+            report/sbom.spdx.json \
+            --clobber
+          echo "✓ Evidence attached to release ${{ github.ref_name }}"
